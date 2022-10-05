@@ -1,16 +1,24 @@
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::io::copy;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use walkdir::{DirEntry, WalkDir};
 
-use serde::{Deserialize, Serialize};
+fn is_hidden(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| s.starts_with("."))
+        .unwrap_or(false)
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct DataSlot {
     id: i32,
-    filename: String,
+    filename: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -21,6 +29,11 @@ struct Instance {
 #[derive(Serialize, Deserialize, Debug)]
 struct AssetFile {
     instance: Instance,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct DataFile {
+    data: Instance,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -48,14 +61,33 @@ fn find_json_files(pocket_path: &str) -> Vec<PathBuf> {
     return json_file_paths;
 }
 
-fn read_json(path: &PathBuf) -> Vec<String> {
+fn read_asset_json(path: &PathBuf) -> Vec<String> {
     println!("Reading JSON asset: {}", path.display());
     let mut file_names: Vec<String> = Vec::new();
     let contents = fs::read_to_string(path).expect("Should have been able to read the file");
     let asset_data: AssetFile = serde_json::from_str(&contents).expect("Error reading file");
     for data_slot in asset_data.instance.data_slots {
-        println!("Found DataSlot File: {}", data_slot.filename);
-        file_names.push(data_slot.filename);
+        if data_slot.filename.is_some() {
+            let file_name = data_slot.filename.unwrap();
+            println!("Found DataSlot File: {}", &file_name);
+            file_names.push(file_name);
+        }
+    }
+
+    return file_names;
+}
+
+fn read_core_json(path: &PathBuf) -> Vec<String> {
+    println!("Reading JSON asset: {}", path.display());
+    let mut file_names: Vec<String> = Vec::new();
+    let contents = fs::read_to_string(path).expect("Should have been able to read the file");
+    let data_data: DataFile = serde_json::from_str(&contents).expect("Error reading file");
+    for data_slot in data_data.data.data_slots {
+        if data_slot.filename.is_some() {
+            let file_name = data_slot.filename.unwrap();
+            println!("Found DataSlot File: {}", &file_name);
+            file_names.push(file_name);
+        }
     }
 
     return file_names;
@@ -81,7 +113,31 @@ fn find_common_path(json_path: &PathBuf) -> PathBuf {
     return common_folder_path;
 }
 
-async fn try_to_download_file(file_name: String, file_host: &String, common_folder_path: &PathBuf) {
+fn find_core_specific_asset_path(json_path: &PathBuf, asset_path: &str) -> Option<PathBuf> {
+    let core_folder_name = json_path.parent().unwrap().file_name();
+
+    let walker = WalkDir::new(asset_path).into_iter();
+    for entry in walker.filter_entry(|e| !is_hidden(e)) {
+        if entry.as_ref().unwrap().path().file_name() == core_folder_name {
+            return Some(entry.unwrap().path().to_path_buf());
+        }
+    }
+    println!(
+        "Filed to find asset folder for {:?}",
+        core_folder_name.unwrap()
+    );
+    return None;
+}
+
+async fn try_to_download_file(file_name: String, file_host: &String, dest_folder_path: &PathBuf) {
+    let new_file_path = Path::new(dest_folder_path).join(&file_name);
+    let file_exists = new_file_path.exists();
+
+    if file_exists {
+        println!("`{}` already exists, skipping", &file_name);
+        return;
+    }
+
     let target = format!("{}/{}", file_host, file_name);
     let response = reqwest::get(&target).await;
 
@@ -89,10 +145,22 @@ async fn try_to_download_file(file_name: String, file_host: &String, common_fold
         println!("Unable to find {}, skipping", target);
         return;
     }
-    let new_file_path = Path::new(common_folder_path).join(file_name);
+    let new_file_path = Path::new(dest_folder_path).join(file_name);
     let mut dest = fs::File::create(new_file_path).expect("error creating file");
     let content = response.unwrap().text().await.unwrap();
     copy(&mut content.as_bytes(), &mut dest).expect("error writing file");
+}
+
+fn find_core_data_files(cores_path: &str) -> Vec<PathBuf> {
+    let json_paths = find_json_files(cores_path);
+
+    let data_paths = json_paths
+        .iter()
+        .filter(|path| path.file_name().unwrap() == "data.json")
+        .cloned()
+        .collect::<Vec<PathBuf>>();
+
+    return data_paths;
 }
 
 #[tokio::main]
@@ -103,10 +171,26 @@ async fn main() {
     let json_paths = find_json_files(&(pocket_path.to_owned() + "/Assets"));
 
     for json in json_paths {
-        let json_file_names = read_json(&json);
+        let file_names = read_asset_json(&json);
         let common_folder = find_common_path(&json);
-        for json_file_name in json_file_names {
-            try_to_download_file(json_file_name, &config.file_host, &common_folder).await;
+        for file_name in file_names {
+            try_to_download_file(file_name, &config.file_host, &common_folder).await;
+        }
+    }
+
+    let core_data_paths = find_core_data_files(&pocket_path);
+
+    for core_data_path in core_data_paths {
+        println!("Core data path: {}", core_data_path.display());
+        let file_names = read_core_json(&core_data_path);
+        let core_asset_folder = find_core_specific_asset_path(&core_data_path, pocket_path);
+
+        if core_asset_folder.is_none() {
+            continue;
+        }
+        let dest = core_asset_folder.unwrap();
+        for file_name in file_names {
+            try_to_download_file(file_name, &config.file_host, &dest).await;
         }
     }
 }
