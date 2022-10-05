@@ -17,7 +17,6 @@ fn is_hidden(entry: &DirEntry) -> bool {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct DataSlot {
-    id: i32,
     filename: Option<String>,
 }
 
