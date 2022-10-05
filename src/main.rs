@@ -162,18 +162,29 @@ fn find_core_data_files(cores_path: &str) -> Vec<PathBuf> {
     return data_paths;
 }
 
+fn get_file_host(pocket_path: &String) -> String {
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() > 2 {
+        return args[2].to_owned();
+    } else {
+        let config = read_config_file(&pocket_path);
+        return config.file_host.to_string();
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = env::args().collect();
     let pocket_path = &args[1];
-    let config = read_config_file(&pocket_path);
     let json_paths = find_json_files(&(pocket_path.to_owned() + "/Assets"));
+    let file_host = get_file_host(pocket_path);
 
     for json in json_paths {
         let file_names = read_asset_json(&json);
         let common_folder = find_common_path(&json);
         for file_name in file_names {
-            try_to_download_file(file_name, &config.file_host, &common_folder).await;
+            try_to_download_file(file_name, &file_host, &common_folder).await;
         }
     }
 
@@ -189,7 +200,7 @@ async fn main() {
         }
         let dest = core_asset_folder.unwrap();
         for file_name in file_names {
-            try_to_download_file(file_name, &config.file_host, &dest).await;
+            try_to_download_file(file_name, &file_host, &dest).await;
         }
     }
 }
