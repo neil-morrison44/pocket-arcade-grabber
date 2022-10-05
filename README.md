@@ -18,7 +18,8 @@ It should be run after installing a new / updated Arcade core on the Pocket.
 - Optionally, you can supply 2nd argument to say where to look for the ROMs (that you own)
 
 ## Known issues
-- It's not very smart, it'll try to download things which aren't needed - but these downloads will fail & it handles that
+- It's not very smart, it'll try to download things which aren't needed - but these downloads will fail & it handles that -- ~~but it can take a while looping through _all_ of the Neo Geo json files, for example.~~ now ignores neogeo
+- In the future, once the arcade / console etc categories are rolled out into more cores I'll probably have it read that & only focus on arcade cores.
 
 ## FAQs
 

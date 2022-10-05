@@ -50,7 +50,10 @@ fn find_json_files(pocket_path: &str) -> Vec<PathBuf> {
             }
         }
         let md = fs::metadata(path.as_ref().unwrap().path()).unwrap();
-        if md.is_dir() {
+
+        // Explicitly avoiding NeoGeo since there's loads of JSON files in there we won't find anything for
+        let file_name = path.as_ref().unwrap().file_name();
+        if md.is_dir() && (file_name != "Mazamars312.NeoGeo" && file_name != "ng") {
             let inner_json_paths = find_json_files(path.as_ref().unwrap().path().to_str().unwrap());
             for inner_json_path in inner_json_paths {
                 json_file_paths.push(inner_json_path);
@@ -108,8 +111,13 @@ fn read_config_file(path: &str) -> ConfigFile {
 }
 
 fn find_common_path(json_path: &PathBuf) -> PathBuf {
-    let common_folder_path = json_path.parent().unwrap().parent().unwrap().join("common");
-    return common_folder_path;
+    let mut current_path: PathBuf = json_path.clone();
+
+    while !current_path.join("common").exists() {
+        current_path = current_path.parent().unwrap().to_path_buf();
+    }
+
+    return current_path.join("common");
 }
 
 fn find_core_specific_asset_path(json_path: &PathBuf, asset_path: &str) -> Option<PathBuf> {
@@ -191,7 +199,6 @@ async fn main() {
     let core_data_paths = find_core_data_files(&pocket_path);
 
     for core_data_path in core_data_paths {
-        println!("Core data path: {}", core_data_path.display());
         let file_names = read_core_json(&core_data_path);
         let core_asset_folder = find_core_specific_asset_path(&core_data_path, pocket_path);
 
