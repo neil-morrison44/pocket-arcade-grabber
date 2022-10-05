@@ -12,6 +12,11 @@ Note this utility is purely a **convience** method for loading **your own** ROMs
 
 It should be run after installing a new / updated Arcade core on the Pocket.
 
+## To run
+- Download the binary from the releases page for your OS, in it in a terminal / command line and supply the path to the pocket root folder as the 1st argument.
+
+- Optionally, you can supply 2nd argument to say where to look for the ROMs (that you own)
+
 ## Known issues
 - It's not very smart, it'll try to download things which aren't needed - but these downloads will fail & it handles that
 
