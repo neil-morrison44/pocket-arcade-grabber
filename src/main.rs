@@ -44,8 +44,17 @@ fn find_json_files(pocket_path: &str) -> Vec<PathBuf> {
     let mut json_file_paths: Vec<PathBuf> = Vec::new();
     let paths = fs::read_dir(pocket_path).unwrap();
     for path in paths {
-        if let Some(extension) = path.as_ref().unwrap().path().extension() {
-            if extension == "json" {
+        let path_buf = path.as_ref().unwrap().path();
+
+        if let Some(extension) = path_buf.extension() {
+            if extension == "json"
+                && !path_buf
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .starts_with(".")
+            {
                 json_file_paths.push(path.as_ref().unwrap().path())
             }
         }
