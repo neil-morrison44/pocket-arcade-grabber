@@ -42,32 +42,36 @@ struct ConfigFile {
 
 fn find_json_files(pocket_path: &str) -> Vec<PathBuf> {
     let mut json_file_paths: Vec<PathBuf> = Vec::new();
-    let paths = fs::read_dir(pocket_path).unwrap();
-    for path in paths {
-        let path_buf = path.as_ref().unwrap().path();
+    if let Ok(paths) = fs::read_dir(pocket_path) {
+        for path in paths {
+            let path_buf = path.as_ref().unwrap().path();
 
-        if let Some(extension) = path_buf.extension() {
-            if extension == "json"
-                && !path_buf
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .starts_with(".")
-            {
-                json_file_paths.push(path.as_ref().unwrap().path())
+            if let Some(extension) = path_buf.extension() {
+                if extension == "json"
+                    && !path_buf
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .starts_with(".")
+                {
+                    json_file_paths.push(path.as_ref().unwrap().path())
+                }
+            }
+            let md = fs::metadata(path.as_ref().unwrap().path()).unwrap();
+
+            // Explicitly avoiding NeoGeo since there's loads of JSON files in there we won't find anything for
+            let file_name = path.as_ref().unwrap().file_name();
+            if md.is_dir() && (file_name != "Mazamars312.NeoGeo" && file_name != "ng") {
+                let inner_json_paths =
+                    find_json_files(path.as_ref().unwrap().path().to_str().unwrap());
+                for inner_json_path in inner_json_paths {
+                    json_file_paths.push(inner_json_path);
+                }
             }
         }
-        let md = fs::metadata(path.as_ref().unwrap().path()).unwrap();
-
-        // Explicitly avoiding NeoGeo since there's loads of JSON files in there we won't find anything for
-        let file_name = path.as_ref().unwrap().file_name();
-        if md.is_dir() && (file_name != "Mazamars312.NeoGeo" && file_name != "ng") {
-            let inner_json_paths = find_json_files(path.as_ref().unwrap().path().to_str().unwrap());
-            for inner_json_path in inner_json_paths {
-                json_file_paths.push(inner_json_path);
-            }
-        }
+    } else {
+        println!("Failed to read {}", pocket_path);
     }
     return json_file_paths;
 }
