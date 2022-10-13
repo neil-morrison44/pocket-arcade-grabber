@@ -82,10 +82,11 @@ fn read_asset_json(path: &PathBuf) -> Vec<String> {
     let contents = fs::read_to_string(path).expect("Should have been able to read the file");
     let asset_data: AssetFile = serde_json::from_str(&contents).expect("Error reading file");
     for data_slot in asset_data.instance.data_slots {
-        if data_slot.filename.is_some() {
-            let file_name = data_slot.filename.unwrap();
-            println!("Found DataSlot File: {}", &file_name);
-            file_names.push(file_name);
+        if let Some(file_name) = data_slot.filename {
+            if file_name.ends_with(".rom") {
+                println!("Found .rom File: {}", &file_name);
+                file_names.push(file_name);
+            }
         }
     }
 
@@ -97,11 +98,13 @@ fn read_core_json(path: &PathBuf) -> Vec<String> {
     let mut file_names: Vec<String> = Vec::new();
     let contents = fs::read_to_string(path).expect("Should have been able to read the file");
     let data_data: DataFile = serde_json::from_str(&contents).expect("Error reading file");
+
     for data_slot in data_data.data.data_slots {
-        if data_slot.filename.is_some() {
-            let file_name = data_slot.filename.unwrap();
-            println!("Found DataSlot File: {}", &file_name);
-            file_names.push(file_name);
+        if let Some(file_name) = data_slot.filename {
+            if file_name.ends_with(".rom") {
+                println!("Found .rom File: {}", &file_name);
+                file_names.push(file_name);
+            }
         }
     }
 
@@ -154,7 +157,11 @@ async fn try_to_download_file(file_name: String, file_host: &String, dest_folder
     let file_exists = new_file_path.exists();
 
     if file_exists {
-        println!("`{}` already exists, skipping", &file_name);
+        println!(
+            "`{}/{}` already exists, skipping",
+            dest_folder_path.to_str().unwrap(),
+            &file_name
+        );
         return;
     }
 
@@ -218,6 +225,8 @@ async fn main() {
         if core_asset_folder.is_none() {
             continue;
         }
+        // TODO: this puts files into the _wrong_ folder, need to read core.json to find the
+        // platform_ids and work out the common folder from there
         let dest = core_asset_folder.unwrap();
         for file_name in file_names {
             try_to_download_file(file_name, &file_host, &dest).await;
