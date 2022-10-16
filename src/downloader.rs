@@ -32,7 +32,6 @@ pub async fn try_to_download_file(
             } else {
                 let new_file_path = Path::new(dest_folder_path).join(file_name);
                 if let Ok(mut dest) = fs::File::create(&new_file_path) {
-                    dbg!(&r);
                     if let Ok(content) = r.bytes().await {
                         let mut content_cusror = Cursor::new(content);
                         if let Ok(_success) = copy(&mut content_cusror, &mut dest) {
